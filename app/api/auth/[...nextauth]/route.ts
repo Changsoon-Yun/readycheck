@@ -1,83 +1,65 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { login } from "@/apis/user/user";
-import { AuthUser, Profile } from "@/apis/user/user.type";
+import NextAuth, { NextAuthOptions } from 'next-auth';
+import BattleNetProvider, { BattleNetIssuer } from 'next-auth/providers/battlenet';
 
-declare module "next-auth" {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface User extends AuthUser {}
-
+declare module 'next-auth' {
   interface Session {
-    accessToken: string;
-    tokenType: string;
-    user: Profile["data"];
+    accessToken?: string;
+    user: {
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
   }
 }
 
-declare module "next-auth/jwt" {
+declare module 'next-auth/jwt' {
   interface JWT {
     accessToken?: string;
-    tokenType?: string;
-    userData?: Profile["data"];
   }
 }
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("이메일과 비밀번호를 입력해주세요");
-        }
+    BattleNetProvider({
+      clientId: process.env.BATTLENET_CLIENT_ID!,
+      clientSecret: process.env.BATTLENET_CLIENT_SECRET!,
+      issuer: process.env.BATTLENET_ISSUER as BattleNetIssuer,
 
-        try {
-          const user = await login({
-            email: credentials.email,
-            password: credentials.password,
-          });
-
-          return user;
-        } catch (error) {
-          throw error;
-        }
-      },
+      checks: ['state', 'nonce'],
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.accessToken = user.accessToken;
-        token.tokenType = user.tokenType;
-        token.userData = user.userData;
-      }
+  pages: {
+    signIn: '/auth/signin',
+    error: '/auth/signin',
+  },
+  cookies: {
+    sessionToken: {
+      name: `readycheck__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
 
+  callbacks: {
+    async jwt({ token, account }) {
+      if (account?.provider === 'battlenet') {
+        console.log('from jwt', { account, token });
+        token.accessToken = account.access_token;
+      }
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.accessToken = token.accessToken as string;
-        session.tokenType = token.tokenType as string;
-        session.user = token.userData as Profile["data"];
-      }
-
+      console.log('from session', { session, token });
+      session.accessToken = token.accessToken;
       return session;
     },
   },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30일
-  },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
+  debug: process.env.NODE_ENV === 'development',
 };
 
 const handler = NextAuth(authOptions);

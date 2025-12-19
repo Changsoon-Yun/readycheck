@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  TANK
+  HEALER
+  MELEE
+  RANGE
+}
+
+enum SlotType {
+  ROLE
+  SPEC
+}
+
+model RecruitmentPost {
+  id          String   @id @default(cuid())
+  title       String
+  difficulty  String
+
+  startDate   DateTime
+  endDate     DateTime
+  startTime   String
+  endTime     String
+
+  memo        String?
+
+  discordUrl  String?
+  kakaoUrl    String?
+  dmUrl       String?
+
+  slots       RecruitmentSlot[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+
+model RecruitmentSlot {
+  id        String   @id @default(cuid())
+  postId    String
+  post      RecruitmentPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  type      SlotType
+  role      Role
+
+  class     String?
+  specId    String?
+
+  count     Int
+
+  @@index([postId])
+}

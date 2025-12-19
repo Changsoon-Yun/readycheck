@@ -33,7 +33,7 @@ const RootLayout = async ({
   return (
     <html lang="ko" {...mantineHtmlProps}>
       <head>
-        <ColorSchemeScript />
+        <ColorSchemeScript defaultColorScheme="dark" />
       </head>
       <body className={notoSansKr.className}>
         <MantineProvider>
